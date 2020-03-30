@@ -2,6 +2,16 @@
 # -*- coding: utf-8 -*-
 """
 Created on Mon Mar 23 23:53:39 2020
+采集腾讯视频专题到本地
+例如：
+专题页面：https://v.qq.com/vplus/7d66b5aaee4a4296#uin=7d66b5aaee4a4296?page=video
+储存路径：/Users/huyang/Movies/Youtubecache/帮女郎
+频道名：帮女郎大视野 —— 用于批量更名
+来源：湖南公共频道 —— 用于批量更名
+
+任务函数调用格式：
+Task('专题页面','储存路径','频道名','来源')
+
 
 @author: huyang
 """
@@ -22,15 +32,17 @@ def Task(url,video_downloadpath,channel,TV):
         linkname=mytree.xpath(xpathTitle)
         return linkname
      
-    def write_record(timestr,start_url,linkname,downloaded,uploaded): #写入下载记录
-        new_record = {'date':timestr,'url':start_url,'title':linkname,'downloaded':downloaded,'uploaded':0}
-        global VideoRecords
+    def write_record(timestr,start_url,linkname): #写入下载记录
+        new_record = {'date':timestr,'url':start_url,'title':linkname}
+        VideoRecords = pd.read_csv(Recordscsv)
         VideoRecords = VideoRecords.append(new_record, ignore_index = True)
+        VideoRecords.to_csv(Recordscsv, encoding='utf_8_sig',index=0) # 写入下载记录csv文件保存
         
     def download_video(start_url): #用you-get开始下载
-        if os.system('you-get -o {path} {url}'.format(path=video_downloadpath,url=start_url)) == 0: 
-            write_record(timestr,start_url,linkname,1,0)
-        
+        if os.system('you-get -o {path} {url}'.format(path=video_downloadpath,url=start_url)) == 0:
+            write_record(timestr,start_url,linkname)
+
+
     def File_rename(): #批量处理下载文件夹内的视频标题，加入日期/来源信息  
         renamefileList = os.listdir(video_downloadpath)
         print('***下载文件夹有{}个文件，开始更名'.format(len(renamefileList)-1))
@@ -52,9 +64,8 @@ def Task(url,video_downloadpath,channel,TV):
     r.encoding = r.apparent_encoding
     mytree = etree.HTML(r.text)
     VideoRecords = pd.read_csv(Recordscsv)
-    fileList = os.listdir(video_downloadpath)
     
-    # 执行Task的主程序
+    # ====== 执行Task的主程序
     urls=get_url_list() # 获取要下载的视频地址列表
     linknames=get_url_linkname() # 获取要下载的视频标题列表
     named_tuple = time.localtime()
@@ -62,27 +73,29 @@ def Task(url,video_downloadpath,channel,TV):
     Date = time.strftime("【%Y%m%d】", named_tuple) # 获取Task执行日期
     print('========任务名：{}========='.format(channel))
     n=0
+    # === 获取视频url和标题列表
     for i in urls: # 遍历视频地址列表
         start_url='https:{i}'.format(i=i) # 重新构造完整的下载地址
         linkname=linknames[urls.index(i)] # 用下载地址索引在标题列表里找到该视频对应的标题
-        if start_url in VideoRecords['url'].values: # 视频记录已存在
-            continue #跳出循环 执行下一个链接地址检查
-        else: #视频记录不存在
+        if start_url in VideoRecords['url'].values: 
+            continue 
+        else: 
             print('新记录:', start_url, linkname)
+    # === 开始下载     
         download_video(start_url)
         n += 1
         
-    VideoRecords.to_csv(Recordscsv, encoding='utf_8_sig',index=0) # 写入下载记录csv文件保存
-        
+    # === 下载结果总结   
     if n == 0:
         print('***本次没有下载任何文件')
     else:
         print('***下载{}条记录成功'.format(n))
-
+    # === 开始批量更名
+    fileList = os.listdir(video_downloadpath)
     if len(fileList) <= 1:
         print('***下载文件夹空 \n')
     else:
-        File_rename() # 全部下载完成，执行改名函数，对视频目录文件批量改名
+        File_rename() 
 
 
 '''=====通用设置====='''
@@ -95,7 +108,7 @@ headers = {'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/5
 
 '''=====Task Lists====='''
 Task('https://v.qq.com/vplus/7d66b5aaee4a4296#uin=7d66b5aaee4a4296?page=video','/Users/huyang/Movies/Youtubecache/帮女郎','【帮女郎大视野】','【湖南公共频道】')
-Task('https://v.qq.com/vplus/65586ea58193e745a25e9827b38c171e#uin=65586ea58193e745a25e9827b38c171e?page=index','/Users/huyang/Movies/Youtubecache/湖南经视','【经视新闻】','【湖南经视】')
+Task('https://v.qq.com/vplus/65586ea58193e745a25e9827b38c171e#uin=65586ea58193e745a25e9827b38c171e?page=video','/Users/huyang/Movies/Youtubecache/湖南经视','【经视新闻】','【湖南经视】')
 Task('https://v.qq.com/vplus/41e98d08f3d241cee370ba49c9e883e0#uin=41e98d08f3d241cee370ba49c9e883e0?page=video','/Users/huyang/Movies/Youtubecache/湖南笑工厂','【湖南笑工厂】','')
 Task('https://v.qq.com/vplus/28e8a2ced275f7be67d5bd9617482a49?page=index','/Users/huyang/Movies/Youtubecache/株洲的脱口秀','【株洲的脱口秀】','')
 Task('https://v.qq.com/vplus/8b58a07cdebda4ecced49e3d6d74a98f#uin=8b58a07cdebda4ecced49e3d6d74a98f?page=video','/Users/huyang/Movies/Youtubecache/都市1时间','【都市1时间】','【湖南都市频道】')
@@ -105,3 +118,6 @@ print('''
 ========全部任务运行结束=========
 
           ''')
+
+
+
